@@ -21,7 +21,7 @@
       <link href="/2019/08/05/test/"/>
       <url>/2019/08/05/test/</url>
       
-        <content type="html"><![CDATA[<p>第一次添加文章，测试一下O不OK xx</p>]]></content>
+        <content type="html"><![CDATA[<p>第一次添加文章，<strong><u>测试一下</u></strong>O不<a href="https://www.baidu.com" target="_blank" rel="noopener">OK</a> xx</p>]]></content>
       
       
       
