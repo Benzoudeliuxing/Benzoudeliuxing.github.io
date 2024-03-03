@@ -1,4 +1,4 @@
-const NNPath = '../../neuralNets/';
+const NNPath = './neuralNets/';
 
 const NNWristVersion = '27';
 const NNRingVersion = '14'; //*/
