@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://threejs.org/build/three.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <video class="input_video"></video>
+        <canvas class="output_canvas" width="1280px" height="720px"></canvas>
+    </div>
+</body>
+
+</html>
+
+<script type="module">
+    const videoElement = document.getElementsByClassName('input_video')[0];
+    const canvasElement = document.getElementsByClassName('output_canvas')[0];
+    const canvasCtx = canvasElement.getContext('2d');
+    const THREE = window.THREE;
+
+    function onResults(results) {
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(
+            results.image, 0, 0, canvasElement.width, canvasElement.height);
+        if (results.multiHandLandmarks && results.multiHandedness) {
+            for (let index = 0; index < results.multiHandLandmarks.length; index++) {
+                const classification = results.multiHandedness[index];
+                const isRightHand = classification.label === 'Right';
+                const landmarks = results.multiHandLandmarks[index];
+                // drawConnectors(
+                //     canvasCtx, landmarks, HAND_CONNECTIONS,
+                //     // 右手骨架、左手骨架
+                //     { color: isRightHand ? '#00FF00' : '#FF0000' });
+                // drawLandmarks(canvasCtx, landmarks, {
+                //     // 右手关键点轮廓、左手关键点轮廓
+                //     color: isRightHand ? '#069BDF' : '#79DA5E',
+                //     // 右手关键点填充、左手关键点填充
+                //     fillColor: isRightHand ? '#E03397' : '#0AA94D',
+                //     radius: (x) => {
+                //         return lerp(x.from.z, -0.15, .1, 10, 1);
+                //     }
+                // });
+                // 获取标记点13和14
+                const landmark13 = landmarks[13];
+                const landmark14 = landmarks[14];
+                // 计算中点
+                const midpoint = {
+                    x: (landmark13.x + landmark14.x) / 2,
+                    y: (landmark13.y + landmark14.y) / 2
+                };
+                landmark14.x = midpoint.x;
+                landmark14.y = midpoint.y;
+                drawLandmarks(canvasCtx, [landmark14], {
+                    // 右手关键点轮廓黄色、左手关键点轮廓紫色
+                    color: isRightHand ? '#FFFF00' : '#9400D3',
+                    // 右手关键点填充、左手关键点填充
+                    fillColor: isRightHand ? '#FFFF00' : '#9400D3',
+                    radius: (x) => {
+                        return lerp(x.from.z, -0.15, .1, 10, 1);
+                    }
+                });
+            }
+        }
+        canvasCtx.restore();
+    }
+
+    const hands = new Hands({
+        locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }
+    });
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5
+    });
+    hands.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+        onFrame: async () => {
+            await hands.send({ image: videoElement });
+        },
+        width: 1280,
+        height: 720
+    });
+    camera.start();
+</script>
