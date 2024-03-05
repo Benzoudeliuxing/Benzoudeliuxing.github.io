@@ -2,16 +2,131 @@
 <html>
 
 <head>
-    <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/1.6.0/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 </head>
 
 <body>
-    <a-scene embedded arjs>
-        <a-text value="Hello, WebAR!" color="pink" rotation="-90 0"></a-text>
-        <a-marker-camera preset="hiro"></a-marker-camera>
-        <a-entity camera></a-entity>
-    </a-scene>
+    <!-- <div class="container">
+        <video class="input_video"></video>
+        <canvas class="output_canvas" width="1280px" height="720px"></canvas>
+    </div> -->
+    <div class="container">
+        <!-- 隐藏video -->
+        <video class="input_video" width="1280px" height="820px" autoplay hidden="true"></video>
+        <canvas class="output_canvas" style="position: absolute; top: 0; left: 0;" width="1280px"
+            height="720px"></canvas>
+        <canvas class="myCanvas" width="1280px" height="720px"></canvas>
+    </div>
 </body>
 
 </html>
+
+<script type="module">
+    import * as THREE from './libs/three/v131/build/three.module.js';
+
+    const videoElement = document.getElementsByClassName('input_video')[0];
+    const canvasElement = document.getElementsByClassName('output_canvas')[0];
+    const canvasCtx = canvasElement.getContext('2d');
+
+    var canvasElement1 = document.getElementById('myCanvas');
+
+    const scene = new THREE.Scene();
+    const tcamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    // canvasElement.appendChild(renderer.domElement);
+
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry, material);
+    cube.position.set(1, 1, 1);
+    scene.add(cube);
+
+    tcamera.position.z = 5;
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+
+        renderer.render(scene, tcamera);
+    }
+
+    animate();
+
+    function onResults(results) {
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        canvasCtx.drawImage(
+            results.image, 0, 0, canvasElement.width, canvasElement.height);
+        if (results.multiHandLandmarks && results.multiHandedness) {
+            for (let index = 0; index < results.multiHandLandmarks.length; index++) {
+                const classification = results.multiHandedness[index];
+                const isRightHand = classification.label === 'Right';
+                const landmarks = results.multiHandLandmarks[index];
+                drawConnectors(
+                    canvasCtx, landmarks, HAND_CONNECTIONS,
+                    // 右手骨架、左手骨架
+                    { color: isRightHand ? '#00FF00' : '#FF0000' });
+                drawLandmarks(canvasCtx, landmarks, {
+                    // 右手关键点轮廓、左手关键点轮廓
+                    color: isRightHand ? '#069BDF' : '#79DA5E',
+                    // 右手关键点填充、左手关键点填充
+                    fillColor: isRightHand ? '#E03397' : '#0AA94D',
+                    radius: (x) => {
+                        return lerp(x.from.z, -0.15, .1, 10, 1);
+                    }
+                });
+                // 获取标记点13和14
+                const landmark13 = landmarks[13];
+                const landmark14 = landmarks[14];
+                // 计算中点
+                const midpoint = {
+                    x: (landmark13.x + landmark14.x) / 2,
+                    y: (landmark13.y + landmark14.y) / 2
+                };
+                landmark14.x = midpoint.x;
+                landmark14.y = midpoint.y;
+                drawLandmarks(canvasCtx, [landmark14], {
+                    // 右手关键点轮廓黄色、左手关键点轮廓紫色
+                    color: isRightHand ? '#FFFF00' : '#9400D3',
+                    // 右手关键点填充、左手关键点填充
+                    fillColor: isRightHand ? '#FFFF00' : '#9400D3',
+                    radius: (x) => {
+                        return lerp(x.from.z, -0.15, .1, 10, 1);
+                    }
+                });
+            }
+        }
+        canvasCtx.restore();
+    }
+
+    const hands = new Hands({
+        locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }
+    });
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.7,
+        minTrackingConfidence: 0.5
+    });
+    hands.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+        onFrame: async () => {
+            await hands.send({ image: videoElement });
+        },
+        width: 1280,
+        height: 720
+    });
+    camera.start();
+</script>
